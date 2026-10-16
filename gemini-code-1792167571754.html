@@ -1,0 +1,1109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cognitive Football - Use Solids Edition</title>
+    <style>
+        :root {
+            --bg-dark: #070b14;
+            --field-green: #278545;
+            --field-lines: rgba(255, 255, 255, 0.88);
+            --team-left-color: #e74c3c;
+            --team-right-color: #3498db;
+            --glass-bg: rgba(13, 20, 38, 0.75);
+            --glass-border: rgba(255, 255, 255, 0.22);
+            --font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        body, html {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: var(--bg-dark);
+            font-family: var(--font-family);
+            color: #ffffff;
+        }
+
+        #game-container {
+            width: 100vw;
+            height: 100vh;
+            display: grid;
+            grid-template-rows: 20% 53% 27%;
+            position: relative;
+            background: radial-gradient(circle at center, #15203a 0%, #060911 100%);
+            overflow: hidden;
+        }
+
+        .layer-stadium-bg { grid-row: 1 / -1; grid-column: 1 / -1; z-index: 1; pointer-events: none; }
+        .layer-field { grid-row: 2; z-index: 2; position: relative; }
+        .layer-top-ui { grid-row: 1; z-index: 7; }
+        .layer-bottom-ui { grid-row: 3; z-index: 7; }
+        .layer-overlay { grid-row: 1 / -1; grid-column: 1 / -1; z-index: 8; pointer-events: none; }
+
+        .stadium-lights {
+            width: 100%;
+            height: 100%;
+            background: 
+                radial-gradient(ellipse at 15% 10%, rgba(255,255,255,0.2) 0%, transparent 45%),
+                radial-gradient(ellipse at 85% 10%, rgba(255,255,255,0.2) 0%, transparent 45%);
+            filter: blur(12px);
+        }
+
+        .system-controls {
+            position: absolute;
+            top: 12px;
+            left: 12px;
+            display: flex;
+            gap: 8px;
+            z-index: 9;
+        }
+
+        .sys-btn {
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            color: #ffffff;
+            padding: 6px 14px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            backdrop-filter: blur(10px);
+            transition: all 0.2s;
+        }
+
+        .sys-btn:hover { background: rgba(255,255,255,0.25); }
+
+        .top-ui-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 30px;
+            gap: 20px;
+            height: 100%;
+        }
+
+        .score-panel {
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            backdrop-filter: blur(16px);
+            border-radius: 16px;
+            padding: 10px 24px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            min-width: 220px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+        }
+
+        .score-panel.left { border-left: 6px solid var(--team-left-color); }
+        .score-panel.right { border-right: 6px solid var(--team-right-color); flex-direction: row-reverse; }
+
+        .team-name { font-size: 1.25rem; font-weight: 800; }
+        .team-score { font-size: 2.4rem; font-weight: 900; }
+
+        .question-card {
+            flex: 1;
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            backdrop-filter: blur(20px);
+            border-radius: 20px;
+            padding: 12px 28px;
+            text-align: center;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), inset 0 1px 1px rgba(255,255,255,0.2);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 92%;
+        }
+
+        .question-meta {
+            font-size: 0.85rem;
+            color: #a0aec0;
+            margin-bottom: 4px;
+            display: flex;
+            gap: 15px;
+        }
+
+        .question-text {
+            font-size: 1.45rem;
+            font-weight: 700;
+            line-height: 1.3;
+            color: #ffffff;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.6);
+        }
+
+        .timer-container {
+            position: relative;
+            width: 62px;
+            height: 62px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .timer-svg {
+            width: 100%;
+            height: 100%;
+            transform: rotate(-90deg);
+        }
+
+        .timer-circle-bg { stroke: rgba(255,255,255,0.12); stroke-width: 6; fill: none; }
+        .timer-circle-path {
+            stroke: #48bb78;
+            stroke-width: 6;
+            fill: none;
+            stroke-linecap: round;
+            transition: stroke-dashoffset 1s linear, stroke 0.3s;
+        }
+
+        .timer-text {
+            position: absolute;
+            font-size: 1.25rem;
+            font-weight: bold;
+        }
+
+        .field-container {
+            width: 88%;
+            height: 92%;
+            margin: 0 auto;
+            perspective: 850px;
+            position: relative;
+        }
+
+        .field-platform {
+            width: 100%;
+            height: 100%;
+            background: repeating-linear-gradient(
+                90deg,
+                #278545,
+                #278545 60px,
+                #20723a 60px,
+                #20723a 120px
+            );
+            transform: rotateX(28deg);
+            transform-style: preserve-3d;
+            border-radius: 12px;
+            border: 5px solid rgba(255, 255, 255, 0.5);
+            box-shadow: 
+                0 30px 60px rgba(0,0,0,0.8),
+                inset 0 0 100px rgba(0,0,0,0.35);
+            position: relative;
+        }
+
+        .field-line { position: absolute; background: var(--field-lines); }
+        .center-line { width: 3px; height: 100%; left: 50%; top: 0; transform: translateX(-50%); }
+        .center-circle {
+            width: 120px;
+            height: 120px;
+            border: 3px solid var(--field-lines);
+            border-radius: 50%;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+        .penalty-area-left {
+            width: 15%; height: 60%;
+            border: 3px solid var(--field-lines);
+            border-left: none;
+            position: absolute; top: 20%; left: 0;
+        }
+        .penalty-area-right {
+            width: 15%; height: 60%;
+            border: 3px solid var(--field-lines);
+            border-right: none;
+            position: absolute; top: 20%; right: 0;
+        }
+
+        .goal {
+            position: absolute;
+            top: 30%;
+            width: 3.5%;
+            height: 40%;
+            transform-style: preserve-3d;
+        }
+
+        .goal-left { left: -3.5%; }
+        .goal-right { right: -3.5%; }
+
+        .goal-left .posts { width: 100%; height: 100%; border: 4px solid #fff; border-left: none; }
+        .goal-right .posts { width: 100%; height: 100%; border: 4px solid #fff; border-right: none; }
+
+        .goal-net {
+            position: absolute;
+            width: 100%; height: 100%;
+            background-image: radial-gradient(rgba(255,255,255,0.45) 1px, transparent 0);
+            background-size: 6px 6px;
+            opacity: 0.75;
+            transition: transform 0.12s ease-out;
+        }
+
+        .ball {
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 5;
+            background: 
+                radial-gradient(circle at 35% 30%, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 0.15) 35%, transparent 75%),
+                radial-gradient(circle at 50% 50%, #ffffff 0%, #cbd5e1 65%, #64748b 100%);
+            box-shadow: 
+                inset -6px -6px 12px rgba(0, 0, 0, 0.65),
+                0 12px 18px rgba(0, 0, 0, 0.55);
+            transition: left 0.8s cubic-bezier(0.25, 1, 0.5, 1), top 0.8s cubic-bezier(0.25, 1, 0.5, 1), transform 0.8s ease-out;
+        }
+
+        .ball::before {
+            content: '';
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            background-image: 
+                radial-gradient(circle at 50% 20%, #0f172a 13%, transparent 14%),
+                radial-gradient(circle at 18% 62%, #0f172a 13%, transparent 14%),
+                radial-gradient(circle at 82% 62%, #0f172a 13%, transparent 14%),
+                radial-gradient(circle at 50% 88%, #0f172a 11%, transparent 12%);
+            opacity: 0.9;
+        }
+
+        .ball-shadow {
+            width: 44px;
+            height: 14px;
+            background: rgba(0,0,0,0.65);
+            border-radius: 50%;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, 18px);
+            filter: blur(3px);
+            transition: left 0.8s cubic-bezier(0.25, 1, 0.5, 1);
+            z-index: 4;
+        }
+
+        .bottom-ui-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 40px;
+            padding: 0 40px 15px 40px;
+            height: 100%;
+        }
+
+        .player-deck {
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            backdrop-filter: blur(16px);
+            border-radius: 20px;
+            padding: 12px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            grid-template-rows: 1fr 1fr;
+            gap: 10px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.45);
+        }
+
+        .player-deck.left { border-bottom: 5px solid var(--team-left-color); }
+        .player-deck.right { border-bottom: 5px solid var(--team-right-color); }
+
+        .option-btn {
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            border-radius: 12px;
+            color: #ffffff;
+            font-size: 1.15rem;
+            font-weight: 700;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 8px;
+            text-align: center;
+            transition: all 0.15s ease;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.25);
+            position: relative;
+        }
+
+        .option-btn:hover {
+            background: rgba(255, 255, 255, 0.22);
+            transform: translateY(-2px);
+        }
+
+        .option-btn:active { transform: translateY(1px); }
+
+        .option-btn.correct {
+            background: rgba(72, 187, 120, 0.85) !important;
+            border-color: #48bb78 !important;
+            box-shadow: 0 0 18px rgba(72, 187, 120, 0.7);
+        }
+
+        .option-btn.wrong {
+            background: rgba(245, 101, 101, 0.85) !important;
+            border-color: #f56565 !important;
+            animation: shake 0.4s ease;
+        }
+
+        .option-btn.locked {
+            opacity: 0.45;
+            cursor: not-allowed;
+            pointer-events: none;
+        }
+
+        .overlay-card {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(7, 11, 20, 0.92);
+            backdrop-filter: blur(20px);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 10;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.4s ease;
+        }
+
+        .overlay-card.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .goal-banner {
+            font-size: 5.5rem;
+            font-weight: 900;
+            color: #f6e05e;
+            text-shadow: 0 0 35px rgba(246, 224, 94, 0.7);
+            animation: zoomPulse 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        .shooting-badge {
+            position: absolute;
+            top: 15%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(236, 201, 75, 0.95);
+            color: #1a202c;
+            padding: 6px 18px;
+            border-radius: 20px;
+            font-weight: bold;
+            font-size: 0.95rem;
+            box-shadow: 0 0 20px rgba(236, 201, 75, 0.9);
+            display: none;
+            z-index: 6;
+        }
+
+        .feedback-box {
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            padding: 12px 25px;
+            border-radius: 14px;
+            margin-top: 10px;
+            text-align: center;
+            max-width: 80%;
+            display: none;
+        }
+
+        .screen-title {
+            font-size: 3.2rem;
+            margin-bottom: 10px;
+            background: linear-gradient(135deg, #ffffff 0%, #a0aec0 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .primary-btn {
+            background: linear-gradient(135deg, #3182ce 0%, #2b6cb0 100%);
+            color: white;
+            border: none;
+            padding: 14px 42px;
+            font-size: 1.25rem;
+            font-weight: bold;
+            border-radius: 30px;
+            cursor: pointer;
+            box-shadow: 0 4px 22px rgba(49, 130, 206, 0.6);
+            transition: all 0.2s;
+            margin-top: 20px;
+        }
+
+        .primary-btn:hover { transform: scale(1.05); }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin: 20px 0;
+            width: 60%;
+        }
+
+        .stat-card {
+            background: rgba(255,255,255,0.06);
+            border: 1px solid rgba(255,255,255,0.12);
+            padding: 16px;
+            border-radius: 14px;
+            text-align: center;
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            20%, 60% { transform: translateX(-8px); }
+            40%, 80% { transform: translateX(8px); }
+        }
+
+        @keyframes zoomPulse {
+            0% { transform: scale(0.3); opacity: 0; }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); opacity: 1; }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="game-container">
+        <!-- Control Bar -->
+        <div class="system-controls">
+            <button class="sys-btn" id="btn-fullscreen">Fullscreen</button>
+            <button class="sys-btn" id="btn-audio">Sound: ON</button>
+        </div>
+
+        <!-- Layer 1: Background FX -->
+        <div class="layer-stadium-bg">
+            <div class="stadium-lights"></div>
+        </div>
+
+        <!-- Layer 2: Top UI (Scoreboard & Question) -->
+        <div class="layer-top-ui top-ui-container">
+            <!-- LEFT TEAM SCOREBOARD (TARGETS LEFT GOAL) -->
+            <div class="score-panel left">
+                <div class="team-name" style="color: var(--team-left-color);">Red Team</div>
+                <div class="team-score" id="score-left">0</div>
+            </div>
+
+            <!-- QUESTION CARD -->
+            <div class="question-card">
+                <div class="question-meta">
+                    <span id="q-number">Question 1 of 10</span>
+                    <span id="q-difficulty">• Use Solids</span>
+                </div>
+                <div class="question-text" id="question-text">Loading question...</div>
+                <div class="feedback-box" id="feedback-box"></div>
+            </div>
+
+            <!-- TIMER -->
+            <div class="timer-container">
+                <svg class="timer-svg" viewBox="0 0 36 36">
+                    <path class="timer-circle-bg" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                    <path class="timer-circle-path" id="timer-path" stroke-dasharray="100, 100" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                </svg>
+                <div class="timer-text" id="timer-text">15</div>
+            </div>
+
+            <!-- RIGHT TEAM SCOREBOARD (TARGETS RIGHT GOAL) -->
+            <div class="score-panel right">
+                <div class="team-name" style="color: var(--team-right-color);">Blue Team</div>
+                <div class="team-score" id="score-right">0</div>
+            </div>
+        </div>
+
+        <!-- Layer 3: Field Platform -->
+        <div class="layer-field">
+            <div class="field-container">
+                <div class="shooting-badge" id="shooting-badge">⚡ Scoring Chance!</div>
+                <div class="field-platform">
+                    <div class="field-line center-line"></div>
+                    <div class="center-circle"></div>
+                    <div class="penalty-area-left"></div>
+                    <div class="penalty-area-right"></div>
+
+                    <!-- LEFT GOAL -->
+                    <div class="goal goal-left">
+                        <div class="posts"></div>
+                        <div class="goal-net" id="net-left"></div>
+                    </div>
+
+                    <!-- RIGHT GOAL -->
+                    <div class="goal goal-right">
+                        <div class="posts"></div>
+                        <div class="goal-net" id="net-right"></div>
+                    </div>
+
+                    <!-- BALL AND SHADOW -->
+                    <div class="ball-shadow" id="ball-shadow"></div>
+                    <div class="ball" id="ball"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Layer 4: Bottom UI (Answer Decks) -->
+        <div class="layer-bottom-ui bottom-ui-container">
+            <!-- LEFT TEAM ANSWERS DECK -->
+            <div class="player-deck left" id="deck-left">
+                <button class="option-btn" data-index="0" onclick="handleAnswer('teamLeft', 0)">-</button>
+                <button class="option-btn" data-index="1" onclick="handleAnswer('teamLeft', 1)">-</button>
+                <button class="option-btn" data-index="2" onclick="handleAnswer('teamLeft', 2)">-</button>
+                <button class="option-btn" data-index="3" onclick="handleAnswer('teamLeft', 3)">-</button>
+            </div>
+
+            <!-- RIGHT TEAM ANSWERS DECK -->
+            <div class="player-deck right" id="deck-right">
+                <button class="option-btn" data-index="0" onclick="handleAnswer('teamRight', 0)">-</button>
+                <button class="option-btn" data-index="1" onclick="handleAnswer('teamRight', 1)">-</button>
+                <button class="option-btn" data-index="2" onclick="handleAnswer('teamRight', 2)">-</button>
+                <button class="option-btn" data-index="3" onclick="handleAnswer('teamRight', 3)">-</button>
+            </div>
+        </div>
+
+        <!-- Overlay: Splash Screen -->
+        <div class="overlay-card active" id="splash-screen">
+            <h1 class="screen-title">Cognitive Football</h1>
+            <p style="color: #a0aec0; margin-bottom: 20px; font-size: 1.2rem;">Lesson: Use Solids | Answer fast... advance the ball and score!</p>
+            <button class="primary-btn" onclick="startGame()">Start Match</button>
+        </div>
+
+        <!-- Overlay: Goal Celebration -->
+        <div class="layer-overlay overlay-card" id="goal-screen">
+            <div class="goal-banner">GOAL!</div>
+            <h2 id="goal-team-name" style="font-size: 2.2rem; margin-top: 10px;">Red Team</h2>
+        </div>
+
+        <!-- Overlay: Game Over Screen -->
+        <div class="overlay-card" id="end-screen">
+            <h1 class="screen-title">Match Finished</h1>
+            <h2 id="winner-text" style="color: #48bb78; margin-bottom: 20px;">Winner: Red Team</h2>
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div>Red Team Correct Answers</div>
+                    <div id="stat-left-correct" style="font-size: 1.6rem; font-weight: bold; color: #48bb78;">0</div>
+                </div>
+                <div class="stat-card">
+                    <div>Blue Team Correct Answers</div>
+                    <div id="stat-right-correct" style="font-size: 1.6rem; font-weight: bold; color: #48bb78;">0</div>
+                </div>
+            </div>
+            <button class="primary-btn" onclick="resetGame()">Play Again (New Questions)</button>
+        </div>
+    </div>
+
+    <script>
+        /* ==========================================================================
+           PROFESSIONAL REALISTIC STADIUM CHEERING & APPLAUSE SYNTHESIZER
+           ========================================================================== */
+        let audioCtx = null;
+        let audioMuted = false;
+
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+        }
+
+        function playSound(type) {
+            if (audioMuted) return;
+            initAudio();
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+
+            const now = audioCtx.currentTime;
+
+            if (type === 'kick') {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(140, now);
+                osc.frequency.exponentialRampToValueAtTime(25, now + 0.15);
+                gain.gain.setValueAtTime(0.85, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start(now);
+                osc.stop(now + 0.15);
+            } 
+            else if (type === 'correct') {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(523.25, now);
+                osc.frequency.setValueAtTime(659.25, now + 0.1);
+                osc.frequency.setValueAtTime(783.99, now + 0.2);
+                gain.gain.setValueAtTime(0.3, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.4);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start(now);
+                osc.stop(now + 0.4);
+            } 
+            else if (type === 'wrong') {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(180, now);
+                osc.frequency.linearRampToValueAtTime(110, now + 0.25);
+                gain.gain.setValueAtTime(0.4, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start(now);
+                osc.stop(now + 0.25);
+            } 
+            else if (type === 'goal') {
+                // 1. Double-Tone Referee Whistle
+                [2200, 2800].forEach((freq, idx) => {
+                    const osc = audioCtx.createOscillator();
+                    const wGain = audioCtx.createGain();
+                    osc.type = 'sine';
+                    const startTime = now + (idx * 0.08);
+                    osc.frequency.setValueAtTime(freq, startTime);
+                    wGain.gain.setValueAtTime(0.3, startTime);
+                    wGain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.25);
+                    osc.connect(wGain);
+                    wGain.connect(audioCtx.destination);
+                    osc.start(startTime);
+                    osc.stop(startTime + 0.25);
+                });
+
+                // 2. High-Density Stadium Crowd Roar & Applause
+                const duration = 2.6;
+                const bufferSize = audioCtx.sampleRate * duration;
+                const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+                const data = buffer.getChannelData(0);
+                
+                // Modulated noise for realistic individual clapping pulses embedded in crowd roar
+                for (let i = 0; i < bufferSize; i++) {
+                    const t = i / audioCtx.sampleRate;
+                    const clapPulse = Math.pow(Math.sin(t * 45), 8) * 0.4 + 0.6;
+                    data[i] = (Math.random() * 2 - 1) * clapPulse;
+                }
+
+                const noise = audioCtx.createBufferSource();
+                noise.buffer = buffer;
+
+                // Low-pass filter for massive deep crowd sound
+                const lpFilter = audioCtx.createBiquadFilter();
+                lpFilter.type = 'lowpass';
+                lpFilter.frequency.setValueAtTime(1600, now);
+
+                // High-pass filter to strip rumble
+                const hpFilter = audioCtx.createBiquadFilter();
+                hpFilter.type = 'highpass';
+                hpFilter.frequency.setValueAtTime(250, now);
+
+                const gain = audioCtx.createGain();
+                gain.gain.setValueAtTime(0.01, now);
+                gain.gain.linearRampToValueAtTime(0.85, now + 0.15); // Instant stadium explosion
+                gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+
+                noise.connect(lpFilter);
+                lpFilter.connect(hpFilter);
+                hpFilter.connect(gain);
+                gain.connect(audioCtx.destination);
+
+                noise.start(now);
+            }
+            else if (type === 'tick') {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(800, now);
+                gain.gain.setValueAtTime(0.1, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.05);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start(now);
+                osc.stop(now + 0.05);
+            }
+        }
+
+        /* ==========================================================================
+           CENTRAL SIDE LOGIC & DATA STRUCTURES (STRICT MATCHING)
+           ========================================================================== */
+        const teams = {
+            left: {
+                id: "teamLeft",
+                side: "left",
+                answerSide: "left",
+                targetGoalSide: "left",
+                attackDirection: "left",
+                score: 0,
+                correctCount: 0
+            },
+            right: {
+                id: "teamRight",
+                side: "right",
+                answerSide: "right",
+                targetGoalSide: "right",
+                attackDirection: "right",
+                score: 0,
+                correctCount: 0
+            }
+        };
+
+        const attackZones = {
+            left: { center: 50, attack1: 35, attack2: 20, shootingZone: 10, goal: 2 },
+            right: { center: 50, attack1: 65, attack2: 80, shootingZone: 90, goal: 98 }
+        };
+
+        function getTargetGoal(teamId) {
+            return teamId === "teamLeft" ? "left" : "right";
+        }
+
+        function getAttackDirection(teamId) {
+            return teamId === "teamLeft" ? "left" : "right";
+        }
+
+        function validateGoalDirection(teamId, goalSide) {
+            if (teamId === "teamLeft") return goalSide === "left";
+            if (teamId === "teamRight") return goalSide === "right";
+            return false;
+        }
+
+        /* ==========================================================================
+           COMPLETE QUESTION BANK FROM PROVIDED "USE SOLIDS" LESSON
+           ========================================================================== */
+        const rawQuestionBank = [
+            // Multiple Choice
+            { id: 1, questionText: "Which solid is used to build a wall?", options: ["Water", "Bricks", "Air", "Juice"], correctAnswer: "Bricks", explanation: "Bricks are strong solid objects used to build walls.", difficulty: "Multiple Choice", attackValue: 1 },
+            { id: 2, questionText: "Which material is used to make a window?", options: ["Glass", "Cotton", "Wood", "Paper"], correctAnswer: "Glass", explanation: "Glass is transparent and clear, making it ideal for windows.", difficulty: "Multiple Choice", attackValue: 1 },
+            { id: 3, questionText: "Which solid can be used to make a chair?", options: ["Water", "Air", "Wood", "Milk"], correctAnswer: "Wood", explanation: "Wood is sturdy and solid, perfect for chairs.", difficulty: "Multiple Choice", attackValue: 1 },
+            { id: 4, questionText: "Which material is strong and can be used to make tools?", options: ["Fabric", "Metal", "Paper", "Cotton"], correctAnswer: "Metal", explanation: "Metal is durable and strong for tools.", difficulty: "Multiple Choice", attackValue: 1 },
+            { id: 5, questionText: "What can we use to make clothes?", options: ["Fabric", "Bricks", "Glass", "Metal"], correctAnswer: "Fabric", explanation: "Fabric is soft and flexible for clothing.", difficulty: "Multiple Choice", attackValue: 1 },
+            { id: 6, questionText: "Which material is used to make a pencil?", options: ["Stone", "Glass", "Wood", "Water"], correctAnswer: "Wood", explanation: "Pencils are primarily encased in wood.", difficulty: "Multiple Choice", attackValue: 1 },
+            { id: 7, questionText: "Which solid can be used to build a house?", options: ["Juice", "Air", "Bricks", "Milk"], correctAnswer: "Bricks", explanation: "Bricks provide structural strength for houses.", difficulty: "Multiple Choice", attackValue: 1 },
+            { id: 8, questionText: "Which material can be used to make a drinking cup?", options: ["Glass", "Air", "Fabric", "Cotton"], correctAnswer: "Glass", explanation: "Glass holds liquids reliably.", difficulty: "Multiple Choice", attackValue: 1 },
+            { id: 9, questionText: "Why do we use metal to make some tools?", options: ["Because metal is strong.", "Because metal is liquid.", "Because metal is soft like cotton.", "Because metal can fly."], correctAnswer: "Because metal is strong.", explanation: "Strength is a key property of metals.", difficulty: "Multiple Choice", attackValue: 1 },
+            { id: 10, questionText: "Which solid can be used to make a book?", options: ["Paper", "Water", "Air", "Juice"], correctAnswer: "Paper", explanation: "Pages of books are made from paper.", difficulty: "Multiple Choice", attackValue: 1 },
+            { id: 11, questionText: "Which material is best for making a warm sweater?", options: ["Glass", "Metal", "Wool", "Bricks"], correctAnswer: "Wool", explanation: "Wool traps heat and keeps us warm.", difficulty: "Multiple Choice", attackValue: 1 },
+            { id: 12, questionText: "Which one is a solid object?", options: ["A chair", "Water", "Air", "Juice"], correctAnswer: "A chair", explanation: "A chair has a definite shape and volume.", difficulty: "Multiple Choice", attackValue: 1 },
+            { id: 13, questionText: "Which material is used to make a table?", options: ["Wood", "Milk", "Air", "Water"], correctAnswer: "Wood", explanation: "Tables are commonly built from solid wood.", difficulty: "Multiple Choice", attackValue: 1 },
+            { id: 14, questionText: "Why do we use glass for windows?", options: ["It is easy to see through.", "It is soft like a pillow.", "It is used as food.", "It can fly."], correctAnswer: "It is easy to see through.", explanation: "Transparency allows light and sight.", difficulty: "Multiple Choice", attackValue: 1 },
+            { id: 15, questionText: "Which sentence is correct?", options: ["We use different solids to make different objects.", "We use water to make every object.", "Solids cannot be useful.", "All solids have the same use."], correctAnswer: "We use different solids to make different objects.", explanation: "Materials are chosen based on specific needs.", difficulty: "Multiple Choice", attackValue: 1 },
+
+            // True / False
+            { id: 16, questionText: "Bricks can be used to build walls.", options: ["True", "False"], correctAnswer: "True", explanation: "Bricks are standard wall construction solids.", difficulty: "True / False", attackValue: 1 },
+            { id: 17, questionText: "Water is a solid.", options: ["True", "False"], correctAnswer: "False", explanation: "Water is a liquid.", difficulty: "True / False", attackValue: 1 },
+            { id: 18, questionText: "Wood can be used to make a table.", options: ["True", "False"], correctAnswer: "True", explanation: "Wood is a primary solid material for furniture.", difficulty: "True / False", attackValue: 1 },
+            { id: 19, questionText: "Glass can be used to make windows.", options: ["True", "False"], correctAnswer: "True", explanation: "Glass is transparent and solid.", difficulty: "True / False", attackValue: 1 },
+            { id: 20, questionText: "Air can be used to make a chair.", options: ["True", "False"], correctAnswer: "False", explanation: "Air is a gas, not a solid.", difficulty: "True / False", attackValue: 1 },
+            { id: 21, questionText: "Metal can be used to make some tools.", options: ["True", "False"], correctAnswer: "True", explanation: "Metal tools are strong and durable.", difficulty: "True / False", attackValue: 1 },
+            { id: 22, questionText: "Fabric can be used to make clothes.", options: ["True", "False"], correctAnswer: "True", explanation: "Fabric is woven solid material for garments.", difficulty: "True / False", attackValue: 1 },
+            { id: 23, questionText: "Paper can be used to make books.", options: ["True", "False"], correctAnswer: "True", explanation: "Paper sheets form book pages.", difficulty: "True / False", attackValue: 1 },
+            { id: 24, questionText: "All solids are used to make the same things.", options: ["True", "False"], correctAnswer: "False", explanation: "Different solids have different properties and uses.", difficulty: "True / False", attackValue: 1 },
+            { id: 25, questionText: "We choose a material because of its properties.", options: ["True", "False"], correctAnswer: "True", explanation: "Properties dictate material suitability.", difficulty: "True / False", attackValue: 1 },
+            { id: 26, questionText: "A wooden pencil is a solid object.", options: ["True", "False"], correctAnswer: "True", explanation: "Pencils maintain fixed shape and volume.", difficulty: "True / False", attackValue: 1 },
+            { id: 27, questionText: "Glass is used to make juice.", options: ["True", "False"], correctAnswer: "False", explanation: "Glass makes cups/bottles, not the liquid juice.", difficulty: "True / False", attackValue: 1 },
+            { id: 28, questionText: "Wool can be used to make warm clothes.", options: ["True", "False"], correctAnswer: "True", explanation: "Wool fibers insulate well.", difficulty: "True / False", attackValue: 1 },
+            { id: 29, questionText: "We can use metal to make a spoon.", options: ["True", "False"], correctAnswer: "True", explanation: "Metal spoons are rigid and heat resistant.", difficulty: "True / False", attackValue: 1 },
+            { id: 30, questionText: "Solids are not useful in our daily life.", options: ["True", "False"], correctAnswer: "False", explanation: "Solids form almost all functional daily objects.", difficulty: "True / False", attackValue: 1 }
+        ];
+
+        /* State Variables */
+        let activeQuestionBank = [];
+        let usedQuestionIds = new Set();
+        let currentQuestion = null;
+        let questionIndex = 0;
+        const totalQuestions = 10;
+        let ballPosition = 50;
+        let ballRotation = 0;
+        let questionResolved = false;
+        let timerInterval = null;
+        let timeLeft = 15;
+
+        /* DOM References */
+        const ball = document.getElementById('ball');
+        const ballShadow = document.getElementById('ball-shadow');
+        const shootingBadge = document.getElementById('shooting-badge');
+        const timerText = document.getElementById('timer-text');
+        const timerPath = document.getElementById('timer-path');
+        const feedbackBox = document.getElementById('feedback-box');
+
+        function validateQuestionBank(bank) {
+            return bank.filter(q => q.id && q.questionText && q.options && q.options.length >= 2 && q.correctAnswer);
+        }
+
+        function shuffleArray(array) {
+            let arr = [...array];
+            for (let i = arr.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [arr[i], arr[j]] = [arr[j], arr[i]];
+            }
+            return arr;
+        }
+
+        function startGame() {
+            initAudio();
+            activeQuestionBank = validateQuestionBank(rawQuestionBank);
+            usedQuestionIds.clear();
+            teams.left.score = 0;
+            teams.right.score = 0;
+            teams.left.correctCount = 0;
+            teams.right.correctCount = 0;
+            questionIndex = 0;
+            ballPosition = 50;
+            ballRotation = 0;
+
+            document.getElementById('score-left').innerText = "0";
+            document.getElementById('score-right').innerText = "0";
+            document.getElementById('splash-screen').classList.remove('active');
+            document.getElementById('end-screen').classList.remove('active');
+
+            updateBallPositionUI();
+            nextQuestion();
+        }
+
+        function nextQuestion() {
+            if (questionIndex >= totalQuestions) {
+                endGame();
+                return;
+            }
+
+            questionResolved = false;
+            feedbackBox.style.display = 'none';
+            unlockDecks();
+
+            let availableQuestions = activeQuestionBank.filter(q => !usedQuestionIds.has(q.id));
+            if (availableQuestions.length === 0) {
+                usedQuestionIds.clear();
+                availableQuestions = activeQuestionBank;
+            }
+
+            currentQuestion = availableQuestions[Math.floor(Math.random() * availableQuestions.length)];
+            usedQuestionIds.add(currentQuestion.id);
+
+            questionIndex++;
+            renderQuestionUI();
+            startTimer();
+        }
+
+        function renderQuestionUI() {
+            document.getElementById('q-number').innerText = `Question ${questionIndex} of ${totalQuestions}`;
+            document.getElementById('q-difficulty').innerText = `• ${currentQuestion.difficulty}`;
+            document.getElementById('question-text').innerText = currentQuestion.questionText;
+
+            const isTF = currentQuestion.options.length === 2;
+            const optionsToDisplay = isTF ? currentQuestion.options : shuffleArray(currentQuestion.options);
+
+            ['deck-left', 'deck-right'].forEach(deckId => {
+                const deck = document.getElementById(deckId);
+                const buttons = deck.querySelectorAll('.option-btn');
+                
+                buttons.forEach((btn, idx) => {
+                    if (idx < optionsToDisplay.length) {
+                        btn.style.display = "flex";
+                        btn.innerText = optionsToDisplay[idx];
+                        btn.className = "option-btn";
+                        btn.dataset.value = optionsToDisplay[idx];
+                    } else {
+                        btn.style.display = "none";
+                    }
+                });
+            });
+        }
+
+        function handleAnswer(teamId, btnIndex) {
+            if (questionResolved) return;
+
+            const deckId = teamId === "teamLeft" ? "deck-left" : "deck-right";
+            const deck = document.getElementById(deckId);
+            const btn = deck.querySelectorAll('.option-btn')[btnIndex];
+            const selectedVal = btn.dataset.value;
+
+            if (selectedVal === currentQuestion.correctAnswer) {
+                questionResolved = true;
+                clearInterval(timerInterval);
+                btn.classList.add('correct');
+                playSound('correct');
+                lockDecks();
+
+                if (teamId === "teamLeft") teams.left.correctCount++;
+                else teams.right.correctCount++;
+
+                feedbackBox.innerHTML = `<strong>Correct!</strong><br>${currentQuestion.explanation}`;
+                feedbackBox.style.display = 'block';
+
+                processAttack(teamId, currentQuestion.attackValue);
+            } else {
+                btn.classList.add('wrong');
+                btn.classList.add('locked');
+                playSound('wrong');
+            }
+        }
+
+        function processAttack(winningTeamId, attackSteps) {
+            const direction = getAttackDirection(winningTeamId);
+            const targetGoal = getTargetGoal(winningTeamId);
+
+            playSound('kick');
+
+            if (direction === "left") {
+                ballPosition -= (attackSteps * 15);
+                ballRotation -= 360;
+                if (ballPosition <= attackZones.left.shootingZone) {
+                    executeGoalShot(winningTeamId, targetGoal);
+                    return;
+                }
+            } else if (direction === "right") {
+                ballPosition += (attackSteps * 15);
+                ballRotation += 360;
+                if (ballPosition >= attackZones.right.shootingZone) {
+                    executeGoalShot(winningTeamId, targetGoal);
+                    return;
+                }
+            }
+
+            updateBallPositionUI();
+            setTimeout(nextQuestion, 2200);
+        }
+
+        function updateBallPositionUI() {
+            if (ballPosition < 5) ballPosition = 5;
+            if (ballPosition > 95) ballPosition = 95;
+
+            ball.style.left = `${ballPosition}%`;
+            ball.style.transform = `translate(-50%, -50%) rotate(${ballRotation}deg)`;
+            ballShadow.style.left = `${ballPosition}%`;
+
+            if (ballPosition <= attackZones.left.shootingZone || ballPosition >= attackZones.right.shootingZone) {
+                shootingBadge.style.display = 'block';
+            } else {
+                shootingBadge.style.display = 'none';
+            }
+        }
+
+        function executeGoalShot(teamId, goalSide) {
+            if (!validateGoalDirection(teamId, goalSide)) return;
+
+            const targetPos = goalSide === "left" ? attackZones.left.goal : attackZones.right.goal;
+            ballPosition = targetPos;
+            ballRotation += (goalSide === "left" ? -720 : 720);
+            updateBallPositionUI();
+
+            setTimeout(() => {
+                playSound('goal');
+                const net = document.getElementById(`net-${goalSide}`);
+                if (net) net.style.transform = goalSide === "left" ? "translateX(-12px)" : "translateX(12px)";
+
+                if (teamId === "teamLeft") {
+                    teams.left.score++;
+                    document.getElementById('score-left').innerText = teams.left.score;
+                    document.getElementById('goal-team-name').innerText = "Red Team";
+                    document.getElementById('goal-team-name').style.color = "var(--team-left-color)";
+                } else {
+                    teams.right.score++;
+                    document.getElementById('score-right').innerText = teams.right.score;
+                    document.getElementById('goal-team-name').innerText = "Blue Team";
+                    document.getElementById('goal-team-name').style.color = "var(--team-right-color)";
+                }
+
+                const goalOverlay = document.getElementById('goal-screen');
+                goalOverlay.classList.add('active');
+
+                setTimeout(() => {
+                    goalOverlay.classList.remove('active');
+                    if (net) net.style.transform = "translateX(0)";
+                    ballPosition = 50;
+                    ballRotation = 0;
+                    updateBallPositionUI();
+                    nextQuestion();
+                }, 2200);
+            }, 600);
+        }
+
+        function startTimer() {
+            clearInterval(timerInterval);
+            timeLeft = 15;
+            updateTimerUI();
+
+            timerInterval = setInterval(() => {
+                timeLeft--;
+                updateTimerUI();
+
+                if (timeLeft <= 3 && timeLeft > 0) {
+                    playSound('tick');
+                }
+
+                if (timeLeft <= 0) {
+                    clearInterval(timerInterval);
+                    questionResolved = true;
+                    lockDecks();
+                    setTimeout(nextQuestion, 1500);
+                }
+            }, 1000);
+        }
+
+        function updateTimerUI() {
+            timerText.innerText = timeLeft;
+            const percentage = (timeLeft / 15) * 100;
+            timerPath.style.strokeDasharray = `${percentage}, 100`;
+
+            if (timeLeft <= 3) {
+                timerPath.style.stroke = "#f56565";
+            } else {
+                timerPath.style.stroke = "#48bb78";
+            }
+        }
+
+        function lockDecks() {
+            document.querySelectorAll('.option-btn').forEach(btn => btn.classList.add('locked'));
+        }
+
+        function unlockDecks() {
+            document.querySelectorAll('.option-btn').forEach(btn => btn.classList.remove('locked'));
+        }
+
+        function endGame() {
+            clearInterval(timerInterval);
+            const endScreen = document.getElementById('end-screen');
+            const winnerText = document.getElementById('winner-text');
+
+            if (teams.left.score > teams.right.score) {
+                winnerText.innerText = "Winner: Red Team 🏆";
+                winnerText.style.color = "var(--team-left-color)";
+            } else if (teams.right.score > teams.left.score) {
+                winnerText.innerText = "Winner: Blue Team 🏆";
+                winnerText.style.color = "var(--team-right-color)";
+            } else {
+                winnerText.innerText = "It's a Draw! 🤝";
+                winnerText.style.color = "#f6e05e";
+            }
+
+            document.getElementById('stat-left-correct').innerText = teams.left.correctCount;
+            document.getElementById('stat-right-correct').innerText = teams.right.correctCount;
+
+            endScreen.classList.add('active');
+        }
+
+        function resetGame() {
+            startGame();
+        }
+
+        /* Controls */
+        document.getElementById('btn-fullscreen').addEventListener('click', () => {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen().catch(err => alert(err.message));
+                document.getElementById('btn-fullscreen').innerText = "Exit Fullscreen";
+            } else {
+                if (document.exitFullscreen) {
+                    document.exitFullscreen();
+                    document.getElementById('btn-fullscreen').innerText = "Fullscreen";
+                }
+            }
+        });
+
+        document.getElementById('btn-audio').addEventListener('click', () => {
+            audioMuted = !audioMuted;
+            document.getElementById('btn-audio').innerText = audioMuted ? "Sound: OFF" : "Sound: ON";
+        });
+    </script>
+</body>
+</html>
